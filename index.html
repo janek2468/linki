@@ -54,6 +54,10 @@
             display: block;
             padding: 5px 0;
         }
+        /* Nowa klasa do wydajnego ukrywania */
+        .kafelek.hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -8990,55 +8994,75 @@
         </div>
     </div>
 
-    <script>
-        const wyszukiwarka = document.getElementById('wyszukiwarka');
-        const listaLinkow = document.getElementById('lista-linkow');
-        const kafelki = listaLinkow.getElementsByClassName('kafelek');
-
-        wyszukiwarka.addEventListener('input', function() {
-            const fraza = wyszukiwarka.value.toLowerCase();
-            for (let i = 0; i < kafelki.length; i++) {
-                const kafelek = kafelki[i];
-                const tekst = kafelek.innerText.toLowerCase();
-                if (tekst.includes(fraza)) {
-                    kafelek.style.display = 'block';
-                } else {
-                    kafelek.style.display = 'none';
-                }
-            }
-        });
-    </script>
 <script>
+    // Konfiguracja
+    const wyszukiwarka = document.getElementById('wyszukiwarka');
     const container = document.getElementById('lista-linkow');
-    const originalKafelki = Array.from(container.children);
+    const sortSelect = document.getElementById('sortowanie');
+    
+    // Pobieramy wszystkie kafelki raz i przechowujemy je w pamięci
+    const kafelki = Array.from(container.querySelectorAll('.kafelek'));
 
-    document.getElementById('sortowanie').addEventListener('change', function () {
-        const option = this.value;
-        let kafelki = Array.from(container.children);
+    // Przechowujemy oryginalną kolejność do sortowania "Default"
+    const originalKafelki = [...kafelki]; 
 
-        if (option === 'nazwa-asc') {
-            kafelki.sort((a, b) => {
-                return a.innerText.localeCompare(b.innerText);
-            });
-        } else if (option === 'nazwa-desc') {
-            kafelki.sort((a, b) => {
-                return b.innerText.localeCompare(a.innerText);
-            });
-        } else if (option === 'data-asc') {
-            kafelki.sort((a, b) => {
-                return new Date(a.dataset.added || '1970-01-01') - new Date(b.dataset.added || '1970-01-01');
-            });
-        } else if (option === 'data-desc') {
-            kafelki.sort((a, b) => {
-                return new Date(b.dataset.added || '1970-01-01') - new Date(a.dataset.added || '1970-01-01');
-            });
+    // --- Funkcja do opóźniania wyszukiwania (Debounce) ---
+    function debounce(func, delay = 300) {
+        let timeoutId;
+        return function(...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                func.apply(this, args);
+            }, delay);
+        };
+    }
+
+    // --- Zoptymalizowana funkcja wyszukiwania ---
+    function filtrujKafelki() {
+        const fraza = wyszukiwarka.value.toLowerCase().trim();
+        
+        // Używamy pętli forEach, która jest czytelniejsza
+        kafelki.forEach(kafelek => {
+            // Pobieramy tekst tylko raz, jeśli to konieczne
+            const tekst = kafelek.textContent.toLowerCase();
+            const czyPasuje = tekst.includes(fraza);
+            
+            // Przełączamy klasę zamiast modyfikować styl inline
+            kafelek.classList.toggle('hidden', !czyPasuje);
+        });
+    }
+
+    // --- Logika sortowania ---
+    function sortujKafelki() {
+        const option = sortSelect.value;
+        let kafelkiDoSortowania = [...kafelki]; // Kopiujemy, aby nie modyfikować oryginalnej listy
+
+        // Wybieramy odpowiednią funkcję sortującą
+        const sortFunctions = {
+            'nazwa-asc': (a, b) => a.textContent.localeCompare(b.textContent),
+            'nazwa-desc': (a, b) => b.textContent.localeCompare(a.textContent),
+            'data-asc': (a, b) => new Date(a.dataset.added || '1970-01-01') - new Date(b.dataset.added || '1970-01-01'),
+            'data-desc': (a, b) => new Date(b.dataset.added || '1970-01-01') - new Date(a.dataset.added || '1970-01-01')
+        };
+        
+        // Jeśli wybrano sortowanie inne niż domyślne, sortujemy
+        if (sortFunctions[option]) {
+             kafelkiDoSortowania.sort(sortFunctions[option]);
         } else {
-            kafelki = originalKafelki;
+             // W przeciwnym wypadku przywracamy oryginalną kolejność
+             kafelkiDoSortowania = originalKafelki;
         }
-
+        
+        // Czyścimy kontener i dodajemy posortowane kafelki w jednej operacji
         container.innerHTML = '';
-        kafelki.forEach(el => container.appendChild(el));
-    });
+        container.append(...kafelkiDoSortowania);
+    }
+
+    // --- Event Listeners ---
+    // Używamy funkcji debounce do owinięcia naszej logiki filtrowania
+    wyszukiwarka.addEventListener('input', debounce(filtrujKafelki, 300));
+    sortSelect.addEventListener('change', sortujKafelki);
+
 </script>
 </body>
 </html>
